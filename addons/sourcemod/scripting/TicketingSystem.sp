@@ -91,6 +91,30 @@ public Action OnClientSayCommand(int client, const char[] command, const char[] 
 	return Plugin_Handled;
 }
 
+public void ListDevice(int client, int deviceId)
+{
+	Menu menu = new Menu(TicketingMenuHandler, MENU_ACTIONS_DEFAULT);
+	menu.SetTitle("Device #%d", g_iTotalDevices);
+	char mId[10];
+	char mName[32];
+	char mCName[64];
+	char mCId[32];
+	char mTick[10];
+	
+	Format(mId, sizeof(mId), "ID: %d", g_hDeviceInfo[deviceId][iDeviceId]);
+	Format(mName, sizeof(mName), "Name: %s", g_hDeviceInfo[deviceId][szDeviceName]);
+	Format(mCName, sizeof(mCName), "Owner: %s", g_hDeviceInfo[deviceId][szOwnerName]);
+	Format(mCId, sizeof(mCId), "Owner ID: %s", g_hDeviceInfo[deviceId][szOwnerId]);
+	Format(mTick, sizeof(mTick), "Tickets: %d", g_hDeviceInfo[deviceId][iDeviceTicketOpened]);
+	
+	menu.AddItem("id", mId, ITEMDRAW_DISABLED);
+	menu.AddItem("name", mName, ITEMDRAW_DISABLED);
+	menu.AddItem("owner", mCName, ITEMDRAW_DISABLED);
+	menu.AddItem("ownerid", mCId, ITEMDRAW_DISABLED);
+	menu.AddItem("ticket", mTick, ITEMDRAW_DISABLED);
+	menu.Display(20, client);
+}
+
 public Action Command_OpenTicketingMenu(int client, int args)
 {
 	if(!IsValidClient(client))
@@ -155,7 +179,7 @@ public int DevicesMenuHandler(Menu menu, MenuAction action, int param1, int para
 			if(StrEqual(info, "add"))
 			{
 				g_bListeningForDeviceName[param1] = true;
-				PrintToChat(param1, " \x0A[\x0CTICKETING\x0A] \x0E Type in the name of the device to be added. Type 'cancel' to cancel.");
+				PrintToChat(param1, " \x0A[\x0CTICKETING\x0A] \x0E Type the name of the device to be added in chat. Type 'cancel' to cancel.");
 			}
 			else
 			{
@@ -165,7 +189,7 @@ public int DevicesMenuHandler(Menu menu, MenuAction action, int param1, int para
 					IntToString(i, szId, sizeof(szId));
 					if(StrEqual(info, szId))
 					{
-						//Display device information about device #'i'
+						ListDevice(param1, i);
 					}
 				}
 			}
