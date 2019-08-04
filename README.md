@@ -1,2 +1,2 @@
 # Ticketing System
-## https://github.com/Diam0ndz/Ticketing-System
+## Ticketing system made for Source Engine games for the r/ProgrammerHumor Hackathon
