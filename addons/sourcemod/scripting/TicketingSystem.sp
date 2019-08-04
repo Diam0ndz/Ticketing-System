@@ -19,6 +19,7 @@ Database g_Database;
 int g_iTotalDevices = -1;
 int g_iTotalTickets = -1;
 
+bool g_bListeningForDeviceName[MAXPLAYERS + 1];
 
 public Plugin myinfo = 
 {
@@ -34,6 +35,60 @@ public void OnPluginStart()
 	RegConsoleCmd("sm_ticketing", Command_OpenTicketingMenu, "Opens ticketing menu");
 	
 	ConnectToDatabase();
+}
+
+public Action OnClientSayCommand(int client, const char[] command, const char[] sArgs)
+{
+	if(!g_bListeningForDeviceName[client])
+		return Plugin_Continue;
+		
+	char clientName[MAX_NAME_LENGTH];
+	GetClientName(client, clientName, sizeof(clientName));
+		
+	char authId[32];
+	GetClientAuthId(client, AuthId_SteamID64, authId, sizeof(authId));
+	
+	g_iTotalDevices += 1;
+		
+	g_hDeviceInfo[g_iTotalDevices][iDeviceId] = g_iTotalDevices;
+	Format(g_hDeviceInfo[g_iTotalDevices][szDeviceName], 32, "%s", sArgs);
+	Format(g_hDeviceInfo[g_iTotalDevices][szOwnerName], 64, "%s", clientName);
+	Format(g_hDeviceInfo[g_iTotalDevices][szOwnerId], 32, "%s", authId);
+	g_hDeviceInfo[g_iTotalDevices][iDeviceTicketOpened] = 0;
+		
+	char szQuery[4096];
+	Format(szQuery, sizeof(szQuery), 	"INSERT INTO `devices` \
+										(id, name, owner_name, owner_id, ticket_opened) VALUES \
+										(%d, '%s', '%s', '%s', '0')",
+										g_iTotalDevices, sArgs, clientName, authId);
+										
+	g_Database.Query(SQLCallback_Void, szQuery);
+		
+	Menu menu = new Menu(TicketingMenuHandler, MENU_ACTIONS_DEFAULT);
+	menu.SetTitle("Device #%d", g_iTotalDevices);
+	char mId[10];
+	char mName[32];
+	char mCName[64];
+	char mCId[32];
+	char mTick[10];
+	
+	Format(mId, sizeof(mId), "ID: %d", g_iTotalDevices);
+	Format(mName, sizeof(mName), "Name: %s", sArgs);
+	Format(mCName, sizeof(mCName), "Owner: %s", clientName);
+	Format(mCId, sizeof(mCId), "Owner ID: %s", authId);
+	Format(mTick, sizeof(mTick), "Tickets: %d", g_hDeviceInfo[g_iTotalDevices][iDeviceTicketOpened]);
+	
+	menu.AddItem("id", mId, ITEMDRAW_DISABLED);
+	menu.AddItem("name", mName, ITEMDRAW_DISABLED);
+	menu.AddItem("owner", mCName, ITEMDRAW_DISABLED);
+	menu.AddItem("ownerid", mCId, ITEMDRAW_DISABLED);
+	menu.AddItem("ticket", mTick, ITEMDRAW_DISABLED);
+	menu.Display(20, client);
+
+	g_bListeningForDeviceName[client] = false;
+	PrintToChat(client, " \x0A[\x0CTICKETING\x0A] \x0E Successfully added new device, \x0F%s\x0E.", mId);
+
+	return Plugin_Handled;
 }
 
 public Action Command_OpenTicketingMenu(int client, int args)
@@ -99,7 +154,8 @@ public int DevicesMenuHandler(Menu menu, MenuAction action, int param1, int para
 			menu.GetItem(param2, info, sizeof(info));
 			if(StrEqual(info, "add"))
 			{
-				//Add Device
+				g_bListeningForDeviceName[param1] = true;
+				PrintToChat(param1, " \x0A[\x0CTICKETING\x0A] \x0E Type in the name of the device to be added. Type 'cancel' to cancel.");
 			}
 			else
 			{
@@ -284,7 +340,7 @@ public void SQLCallback_GetDeviceInfo(Database db, DBResultSet results, const ch
 	g_hDeviceInfo[id][iDeviceId] = id;
 	Format(g_hDeviceInfo[id][szDeviceName], 32, "%s", deviceName);
 	Format(g_hDeviceInfo[id][szOwnerName], 64, "%s", ownerName);
-	Format(g_hDeviceInfo[id][dzOwnerId], 32, "%s", ownerId);
+	Format(g_hDeviceInfo[id][szOwnerId], 32, "%s", ownerId);
 	g_hDeviceInfo[id][iDeviceTicketOpened] = ticketOpened;
 }
 

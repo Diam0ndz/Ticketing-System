@@ -11,7 +11,7 @@ enum DeviceInfo
 	iDeviceId,
 	String:szDeviceName[32],
 	String:szOwnerName[64],
-	String:dzOwnerId[32],
+	String:szOwnerId[32],
 	iDeviceTicketOpened,
 }
 
