@@ -1,30 +1,45 @@
+    
 /*
 **
 */
-#if defined _INCLUDE_included
+#if defined _TicketingSystem_included
  #endinput
 #endif
-#define _INCLUDE_included
+#define _TicketingSystem_included
 
-enum DeviceInfo
+/* Plugin Defines */
+#define MAX_INFO_LENGTH (100)
+
+enum struct DeviceInfo
 {
-	iDeviceId,
-	String:szDeviceName[32],
-	String:szOwnerName[64],
-	String:szOwnerId[32],
-	iDeviceTicketOpened,
+	int iDeviceId;
+	char szDeviceName[32];
+	char szOwnerName[64];
+	char szOwnerId[32];
+	int iDeviceTicketOpened;
 }
 
-enum TicketInfo
+enum struct TicketInfo
 {
-	iTicketId,
-	iTicketDeviceId,
-	String:szOpenedByName[64],
-	String:szOpenedById[32],
-	iOpenDate,
-	iCloseDate,
-	String:szOpenReason[2000],
-	String:szCloseReason[2000],
-	String:szClosedByName[64],
-	String:szClosedById[32],
+	int iTicketId;
+	int iTicketDeviceId;
+	char szOpenedByName[64];
+	char szOpenedById[32];
+	int iOpenDate;
+	int iCloseDate;
+	char szOpenReason[2000];
+	char szCloseReason[2000];
+	char szClosedByName[64];
+	char szClosedById[32];
 }
+
+public SharedPlugin __pl_INTERFACE =
+{
+	name = "TicketingSystem",
+	file = "TicketingSystem.smx",
+	#if defined REQUIRE_PLUGIN
+	required = 1,
+	#else
+	required = 0,
+	#endif
+};
