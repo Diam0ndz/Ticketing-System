@@ -1,10 +1,11 @@
+    
 /*
 **
 */
-#if defined _INCLUDE_included
+#if defined _TicketingSystem_included
  #endinput
 #endif
-#define _INCLUDE_included
+#define _TicketingSystem_included
 
 enum DeviceInfo
 {
@@ -28,3 +29,14 @@ enum TicketInfo
 	String:szClosedByName[64],
 	String:szClosedById[32],
 }
+
+public SharedPlugin __pl_INTERFACE =
+{
+	name = "TicketingSystem",
+	file = "TicketingSystem.smx",
+	#if defined REQUIRE_PLUGIN
+	required = 1,
+	#else
+	required = 0,
+	#endif
+};
