@@ -1,25 +1,21 @@
-#pragma semicolon 1
-
-#define DEBUG
-
 #define PLUGIN_AUTHOR "Diam0ndz / Proobs"
 #define PLUGIN_VERSION "0.1"
 
 #include <sourcemod>
-#include <sdktools>
 #include <TicketingSystem>
 
 #pragma newdecls required
+#pragma semicolon 1
 
-Handle g_hDeviceInfo[100][DeviceInfo];
-Handle g_hTicketInfo[100][TicketInfo];
+DeviceInfo DInfo[MAX_INFO_LENGTH]; 
+TicketInfo TInfo[MAX_INFO_LENGTH];
 
-Database g_Database;
+Database g_Database = null;
 
 int g_iTotalDevices = -1;
 int g_iTotalTickets = -1;
 
-bool g_bListeningForDeviceName[MAXPLAYERS + 1];
+bool g_bListeningForDeviceName[MAXPLAYERS + 1] =  { false, ... };
 
 public Plugin myinfo = 
 {
@@ -33,6 +29,7 @@ public Plugin myinfo =
 public void OnPluginStart()
 {
 	RegConsoleCmd("sm_ticketing", Command_OpenTicketingMenu, "Opens ticketing menu");
+	RegConsoleCmd("sm_ticket", Command_OpenTicketingMenu, "Opens ticketing menu");
 	
 	ConnectToDatabase();
 }
@@ -41,21 +38,20 @@ public Action OnClientSayCommand(int client, const char[] command, const char[] 
 {
 	if(!g_bListeningForDeviceName[client])
 		return Plugin_Continue;
-		
+
 	char clientName[MAX_NAME_LENGTH];
 	GetClientName(client, clientName, sizeof(clientName));
-		
+
 	char authId[32];
 	GetClientAuthId(client, AuthId_SteamID64, authId, sizeof(authId));
-	
+
 	g_iTotalDevices += 1;
-		
-	g_hDeviceInfo[g_iTotalDevices][iDeviceId] = g_iTotalDevices;
-	Format(g_hDeviceInfo[g_iTotalDevices][szDeviceName], 32, "%s", sArgs);
-	Format(g_hDeviceInfo[g_iTotalDevices][szOwnerName], 64, "%s", clientName);
-	Format(g_hDeviceInfo[g_iTotalDevices][szOwnerId], 32, "%s", authId);
-	g_hDeviceInfo[g_iTotalDevices][iDeviceTicketOpened] = 0;
-		
+
+	DInfo[g_iTotalDevices].iDeviceId = g_iTotalDevices;
+	Format(DInfo[g_iTotalDevices].szDeviceName, sizeof(DeviceInfo::szDeviceName), "%s", sArgs); 
+	Format(DInfo[g_iTotalDevices].szOwnerName, sizeof(DeviceInfo::szOwnerName), "%s", clientName);
+	Format(DInfo[g_iTotalDevices].szOwnerId, sizeof(DeviceInfo::szOwnerId), "%s", authId);
+	
 	char szQuery[4096];
 	Format(szQuery, sizeof(szQuery), 	"INSERT INTO `devices` \
 										(id, name, owner_name, owner_id, ticket_opened) VALUES \
@@ -76,7 +72,7 @@ public Action OnClientSayCommand(int client, const char[] command, const char[] 
 	Format(mName, sizeof(mName), "Name: %s", sArgs);
 	Format(mCName, sizeof(mCName), "Owner: %s", clientName);
 	Format(mCId, sizeof(mCId), "Owner ID: %s", authId);
-	Format(mTick, sizeof(mTick), "Tickets: %d", g_hDeviceInfo[g_iTotalDevices][iDeviceTicketOpened]);
+	Format(mTick, sizeof(mTick), "Tickets: %d", DInfo[g_iTotalDevices].iDeviceTicketOpened);
 	
 	menu.AddItem("id", mId, ITEMDRAW_DISABLED);
 	menu.AddItem("name", mName, ITEMDRAW_DISABLED);
@@ -101,11 +97,11 @@ public void ListDevice(int client, int deviceId)
 	char mCId[32];
 	char mTick[10];
 	
-	Format(mId, sizeof(mId), "ID: %d", g_hDeviceInfo[deviceId][iDeviceId]);
-	Format(mName, sizeof(mName), "Name: %s", g_hDeviceInfo[deviceId][szDeviceName]);
-	Format(mCName, sizeof(mCName), "Owner: %s", g_hDeviceInfo[deviceId][szOwnerName]);
-	Format(mCId, sizeof(mCId), "Owner ID: %s", g_hDeviceInfo[deviceId][szOwnerId]);
-	Format(mTick, sizeof(mTick), "Tickets: %d", g_hDeviceInfo[deviceId][iDeviceTicketOpened]);
+	Format(mId, sizeof(mId), "ID: %d", DInfo[deviceId].iDeviceId);
+	Format(mName, sizeof(mName), "Name: %s", DInfo[deviceId].szDeviceName);
+	Format(mCName, sizeof(mCName), "Owner: %s", DInfo[deviceId].szOwnerName);
+	Format(mCId, sizeof(mCId), "Owner ID: %s", DInfo[deviceId].szOwnerId);
+	Format(mTick, sizeof(mTick), "Tickets: %d", DInfo[deviceId].iDeviceTicketOpened);
 	
 	menu.AddItem("id", mId, ITEMDRAW_DISABLED);
 	menu.AddItem("name", mName, ITEMDRAW_DISABLED);
@@ -227,7 +223,8 @@ public int TicketsMenuHandler(Menu menu, MenuAction action, int param1, int para
 			menu.GetItem(param2, info, sizeof(info));
 			if(StrEqual(info, "add"))
 			{
-				//Add Ticket
+	 			g_bListeningForDeviceName[param1] = true; 
+	 			
 			}
 			else
 			{
@@ -297,41 +294,6 @@ public void SQLConnection_Callback(Database db, const char[] error, any data)
 	}
 }
 
-stock void GetDeviceInfo(int id)
-{
-	char szQuery[4096];
-	Format(szQuery, sizeof(szQuery), 		"SELECT `id`, `name`, `owner_name`, `owner_id`, `ticket_opened`\
-											FROM devices WHERE `id` = '%d'", id);
-											
-	g_Database.Query(SQLCallback_GetDeviceInfo, szQuery);
-}
-
-stock void GetTicketInfo(int id)
-{
-	char szQuery[4096];
-	Format(szQuery, sizeof(szQuery), 		"SELECT `id`, `device_id`, `opened_by_name`, `opened_by_id`, `open_date`, \
-											`close_date`, `open_reason`, `close_reason`, `closed_by_name`, `closed_by_id`\
-											FROM tickets WHERE `id` = '%d'", id);
-											
-	g_Database.Query(SQLCallback_GetTicketInfo, szQuery);
-}
-
-stock void GetDevices()
-{
-	char szQuery[4096];
-	//Stats per round
-	Format(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM `devices`");  
-	g_Database.Query(SQLCallback_GetDeviceId, szQuery);
-}
-
-stock void GetTickets()
-{
-	char szQuery[4096];
-	//Stats per round
-	Format(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM `tickets`");  
-	g_Database.Query(SQLCallback_GetTicketId, szQuery);
-}
-
 public void SQLCallback_GetDeviceInfo(Database db, DBResultSet results, const char[] error, any data)
 {
 	if (db == null)
@@ -361,11 +323,11 @@ public void SQLCallback_GetDeviceInfo(Database db, DBResultSet results, const ch
 	results.FetchString(3, ownerId, sizeof(ownerId));
 	ticketOpened = results.FetchInt(4);
 	
-	g_hDeviceInfo[id][iDeviceId] = id;
-	Format(g_hDeviceInfo[id][szDeviceName], 32, "%s", deviceName);
-	Format(g_hDeviceInfo[id][szOwnerName], 64, "%s", ownerName);
-	Format(g_hDeviceInfo[id][szOwnerId], 32, "%s", ownerId);
-	g_hDeviceInfo[id][iDeviceTicketOpened] = ticketOpened;
+	DInfo[id].iDeviceId = id;
+	Format(DInfo[id].szDeviceName, sizeof(DeviceInfo::szDeviceName), "%s", deviceName);
+	Format(DInfo[id].szOwnerName, sizeof(DeviceInfo::szOwnerName), "%s", ownerName);
+	Format(DInfo[id].szOwnerId, sizeof(DeviceInfo::szOwnerId), "%s", ownerId);
+	DInfo[id].iDeviceTicketOpened = ticketOpened;
 }
 
 public void SQLCallback_GetTicketInfo(Database db, DBResultSet results, const char[] error, any data)
@@ -407,16 +369,16 @@ public void SQLCallback_GetTicketInfo(Database db, DBResultSet results, const ch
 	results.FetchString(8, closedByName, sizeof(closedByName));
 	results.FetchString(9, closedById, sizeof(closedById));
 	
-	g_hTicketInfo[id][iTicketId] = id;
-	g_hTicketInfo[id][iTicketDeviceId] = deviceId;
-	Format(g_hTicketInfo[id][szOpenedByName], 64, "%s", openedByName);
-	Format(g_hTicketInfo[id][szOpenedById], 32, "%s", openedById);
-	g_hTicketInfo[id][iOpenDate] = openDate;
-	g_hTicketInfo[id][iCloseDate] = closeDate;
-	Format(g_hTicketInfo[id][szOpenReason], 2000, "%s", openReason);
-	Format(g_hTicketInfo[id][szCloseReason], 2000, "%s", closeReason);
-	Format(g_hTicketInfo[id][szClosedByName], 64, "%s", closedByName);
-	Format(g_hTicketInfo[id][szClosedById], 32, "%s", closedById);
+	TInfo[id].iTicketId = id;
+	TInfo[id].iTicketDeviceId = deviceId;
+	Format(TInfo[id].szOpenedByName, sizeof(TicketInfo::szOpenedByName), "%s", openedByName);
+	Format(TInfo[id].szOpenedById, sizeof(TicketInfo::szOpenedById), "%s", openedById);
+	TInfo[id].iOpenDate = openDate;
+	TInfo[id].iCloseDate = closeDate;
+	Format(TInfo[id].szOpenReason, sizeof(TicketInfo::szOpenReason), "%s", openReason);
+	Format(TInfo[id].szCloseReason, sizeof(TicketInfo::szCloseReason), "%s", closeReason);
+	Format(TInfo[id].szClosedByName, sizeof(TicketInfo::szClosedByName), "%s", closedByName);
+	Format(TInfo[id].szClosedById, sizeof(TicketInfo::szClosedById), "%s", closedById);
 }
 
 public void SQLCallback_GetDeviceId(Database db, DBResultSet results, const char[] error, any data)
@@ -474,6 +436,7 @@ public void SQLCallback_Void(Database db, DBResultSet results, const char[] erro
 	PrintToServer("ERROR with ticketing system void callback, if any: %s", error);
 }
 
+/* Stocks */ 
 stock bool IsValidClient(int client)
 {
 	if (client <= 0) return false;
@@ -482,4 +445,39 @@ stock bool IsValidClient(int client)
 	if (IsFakeClient(client)) return false;
 	if (IsClientSourceTV(client))return false;
 	return IsClientInGame(client);
+}
+
+stock void GetDeviceInfo(int id)
+{
+	char szQuery[4096];
+	Format(szQuery, sizeof(szQuery), 		"SELECT `id`, `name`, `owner_name`, `owner_id`, `ticket_opened`\
+											FROM devices WHERE `id` = '%d'", id);
+											
+	g_Database.Query(SQLCallback_GetDeviceInfo, szQuery);
+}
+
+stock void GetTicketInfo(int id)
+{
+	char szQuery[4096];
+	Format(szQuery, sizeof(szQuery), 		"SELECT `id`, `device_id`, `opened_by_name`, `opened_by_id`, `open_date`, \
+											`close_date`, `open_reason`, `close_reason`, `closed_by_name`, `closed_by_id`\
+											FROM tickets WHERE `id` = '%d'", id);
+											
+	g_Database.Query(SQLCallback_GetTicketInfo, szQuery);
+}
+
+stock void GetDevices()
+{
+	char szQuery[4096];
+	//Stats per round
+	Format(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM `devices`");  
+	g_Database.Query(SQLCallback_GetDeviceId, szQuery);
+}
+
+stock void GetTickets()
+{
+	char szQuery[4096];
+	//Stats per round
+	Format(szQuery, sizeof(szQuery), "SELECT MAX(id) FROM `tickets`");  
+	g_Database.Query(SQLCallback_GetTicketId, szQuery);
 }
